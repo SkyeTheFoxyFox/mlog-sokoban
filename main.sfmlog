@@ -1,8 +1,11 @@
-pset $MULTIPUSH false
+pset $UNDO_BUFFER_SIZE 64
 
 defmac BuildSchem
     block $MAP_CELL @memory-bank 0 5
     block $COMM_CELL @memory-cell 1 7
+    block $UNDO_DX_CELL @memory-cell 0 7
+    block $UNDO_DY_CELL @memory-cell 0 8
+    block $UNDO_PUSH_CELL @memory-cell 1 8
     block $MESSAGE @message 5 2
     
     block $DISPLAY @large-logic-display 4 5
@@ -12,6 +15,7 @@ defmac BuildSchem
     block $SWITCH_R @switch 4 1
     block $SWITCH_U @switch 3 2
     block $SWITCH_D @switch 3 0
+    block $SWITCH_UNDO @switch 6 1
     block $SWITCH_RESET @switch 7 2
 
     block _ @thorium-wall 0 0
@@ -28,7 +32,6 @@ defmac BuildSchem
     block _ @thorium-wall 1 1
     block _ @thorium-wall 3 1
     block _ @thorium-wall 5 1
-    block _ @thorium-wall 6 1
     block _ @thorium-wall 7 1
     block _ @thorium-wall 8 1
     block _ @thorium-wall 9 1
@@ -40,11 +43,6 @@ defmac BuildSchem
     block _ @thorium-wall 6 2
     block _ @thorium-wall 8 2
     block _ @thorium-wall 9 2
-
-    block _ @thorium-wall 0 7
-
-    block _ @thorium-wall 0 8
-    block _ @thorium-wall 1 8
 
     block _ @thorium-wall 0 9
     block _ @thorium-wall 1 9
@@ -78,6 +76,8 @@ defmac LoadMap id
     print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
     print id
     printflush $MESSAGE
+    set $UNDO_BUFFER_START 0
+    set $UNDO_BUFFER_END 0
     set $moveCount 0
     set $startTime @second
 end
@@ -244,37 +244,6 @@ defmac RenderPlayer
     drawflush $DISPLAY
 end
 
-defmac UpdateMoveMultipush
-    mac ReadInput dx dy
-    jump NoMovement strictEqual dx null
-        op add cx $playerX dx
-        op add cy $playerY dy
-        mac GetCell firstTile cx cy
-        op and isSolid firstTile 0b001
-        jump NoMovement notEqual isSolid false
-        op and isPush firstTile 0b010
-        jump YesMovement equal isPush false
-        CheckLoop:
-        op add cx cx dx
-        op add cy cy dy
-        mac GetCell tile cx cy
-        op and isSolid tile 0b001
-        jump NoMovement notEqual isSolid false
-        op and isPush tile 0b010
-        jump CheckLoop notEqual isPush false
-        op or tile tile 0b010
-        mac SetCell tile cx cy
-        mac RenderCell cx cy
-        op and firstTile firstTile 0b101
-        op add cx $playerX dx
-        op add cy $playerY dy
-        mac SetCell firstTile cx cy
-        mac RenderCell cx cy
-        YesMovement:
-        mac MovePlayer dx dy
-    NoMovement:
-end
-
 defmac UpdateMove
     mac ReadInput dx dy
     jump NoMovement strictEqual dx null
@@ -297,6 +266,7 @@ defmac UpdateMove
         mac SetCell firstTile cx cy
         mac RenderCell cx cy
         YesMovement:
+        mac WriteUndo dx dy isPush
         mac MovePlayer dx dy
     NoMovement:
 end
@@ -344,12 +314,60 @@ defmac MovePlayer dx dy
     op add $moveCount $moveCount 1
 end
 
+defmac UndoPlayer dx dy
+    op sub $playerX $playerX dx
+    op sub $playerY $playerY dy
+    mac RenderPlayer
+    op sub $moveCount $moveCount 1
+end
+
+defmac WriteUndo dx dy push
+    op add $UNDO_BUFFER_END $UNDO_BUFFER_END 1
+    op mod $UNDO_BUFFER_END $UNDO_BUFFER_END $UNDO_BUFFER_SIZE
+    jump YesSpace notEqual $UNDO_BUFFER_END $UNDO_BUFFER_START
+        op add $UNDO_BUFFER_START $UNDO_BUFFER_START 1
+        op mod $UNDO_BUFFER_START $UNDO_BUFFER_START $UNDO_BUFFER_SIZE
+    YesSpace:
+    write dx $UNDO_DX_CELL $UNDO_BUFFER_END
+    write dy $UNDO_DY_CELL $UNDO_BUFFER_END
+    write push $UNDO_PUSH_CELL $UNDO_BUFFER_END
+end
+
+defmac ReadUndo dx dy push
+    read dx $UNDO_DX_CELL $UNDO_BUFFER_END
+    read dy $UNDO_DY_CELL $UNDO_BUFFER_END
+    read push $UNDO_PUSH_CELL $UNDO_BUFFER_END
+    pop sub undoBufferSizeSub1 $UNDO_BUFFER_SIZE 1
+    op add $UNDO_BUFFER_END $UNDO_BUFFER_END undoBufferSizeSub1
+    op mod $UNDO_BUFFER_END $UNDO_BUFFER_END $UNDO_BUFFER_SIZE
+end
+
+defmac UpdateUndo
+    sensor doUndo $SWITCH_UNDO @enabled
+    jump NoUndo notEqual doUndo true
+        jump CantUndo equal $UNDO_BUFFER_START $UNDO_BUFFER_END
+        mac ReadUndo dx dy push
+        jump NoBox equal push false
+            op add boxX $playerX dx
+            op add boxY $playerY dy
+            mac GetCell tile boxX boxY
+            op and tile 0b101 tile
+            mac SetCell tile boxX boxY
+            mac GetCell tile $playerX $playerY
+            op or tile 0b010 tile
+            mac SetCell tile $playerX $playerY
+            mac RenderCell boxX boxY
+        NoBox:
+        mac RenderCell $playerX $playerY
+        mac UndoPlayer dx dy
+    CantUndo:
+    control enabled $SWITCH_UNDO false
+    NoUndo:
+end
+
 defmac Update
-    if equal $MULTIPUSH true
-        mac UpdateMoveMultipush
-    else
-        mac UpdateMove
-    end
+    mac UpdateMove
+    mac UpdateUndo
 end
 
 defmac Main
@@ -360,7 +378,10 @@ defmac Main
     control enabled $SWITCH_D 0
     control enabled $SWITCH_L 0
     control enabled $SWITCH_R 0
+    control enabled $SWITCH_UNDO 0
     control enabled $SWITCH_RESET 0
+    set $UNDO_BUFFER_START 0
+    set $UNDO_BUFFER_END 0
     read $MAP_SIZE $COMM_CELL 7
     op div $MAP_CELL_SIZE $DISPLAY_SIZE $MAP_SIZE
     op floor $MAP_CELL_SIZE $MAP_CELL_SIZE
