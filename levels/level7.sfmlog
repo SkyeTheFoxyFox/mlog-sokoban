@@ -1,0 +1,84 @@
+defmac MapInit 
+    mac LoadMapSize 12
+    mac LoadPlayer 9 9
+
+    mac LoadCell 0b001 3 0
+    mac LoadCell 0b001 4 0
+    mac LoadCell 0b001 5 0
+    mac LoadCell 0b001 6 0
+    mac LoadCell 0b001 7 0
+    mac LoadCell 0b001 8 0
+    mac LoadCell 0b001 9 0
+    mac LoadCell 0b001 10 0
+    mac LoadCell 0b001 11 0
+    mac LoadCell 0b001 3 1
+    mac LoadCell 0b001 6 1
+    mac LoadCell 0b001 7 1
+    mac LoadCell 0b001 11 1
+    mac LoadCell 0b001 3 2
+    mac LoadCell 0b010 5 2
+    mac LoadCell 0b010 8 2
+    mac LoadCell 0b001 11 2
+    mac LoadCell 0b001 3 3
+    mac LoadCell 0b010 6 3
+    mac LoadCell 0b001 7 3
+    mac LoadCell 0b010 9 3
+    mac LoadCell 0b001 11 3
+    mac LoadCell 0b001 0 4
+    mac LoadCell 0b001 1 4
+    mac LoadCell 0b001 2 4
+    mac LoadCell 0b001 3 4
+    mac LoadCell 0b010 5 4
+    mac LoadCell 0b001 7 4
+    mac LoadCell 0b010 8 4
+    mac LoadCell 0b001 11 4
+    mac LoadCell 0b001 0 5
+    mac LoadCell 0b100 1 5
+    mac LoadCell 0b100 2 5
+    mac LoadCell 0b001 3 5
+    mac LoadCell 0b001 4 5
+    mac LoadCell 0b001 5 5
+    mac LoadCell 0b001 7 5
+    mac LoadCell 0b010 9 5
+    mac LoadCell 0b001 11 5
+    mac LoadCell 0b001 0 6
+    mac LoadCell 0b100 1 6
+    mac LoadCell 0b100 2 6
+    mac LoadCell 0b001 5 6
+    mac LoadCell 0b001 7 6
+    mac LoadCell 0b010 9 6
+    mac LoadCell 0b001 11 6
+    mac LoadCell 0b001 0 7
+    mac LoadCell 0b100 1 7
+    mac LoadCell 0b100 2 7
+    mac LoadCell 0b010 8 7
+    mac LoadCell 0b010 9 7
+    mac LoadCell 0b001 11 7
+    mac LoadCell 0b001 0 8
+    mac LoadCell 0b100 1 8
+    mac LoadCell 0b100 2 8
+    mac LoadCell 0b001 5 8
+    mac LoadCell 0b001 6 8
+    mac LoadCell 0b001 7 8
+    mac LoadCell 0b001 11 8
+    mac LoadCell 0b001 0 9
+    mac LoadCell 0b100 1 9
+    mac LoadCell 0b100 2 9
+    mac LoadCell 0b001 5 9
+    mac LoadCell 0b001 7 9
+    mac LoadCell 0b001 8 9
+    mac LoadCell 0b001 10 9
+    mac LoadCell 0b001 11 9
+    mac LoadCell 0b001 0 10
+    mac LoadCell 0b001 1 10
+    mac LoadCell 0b001 2 10
+    mac LoadCell 0b001 3 10
+    mac LoadCell 0b001 4 10
+    mac LoadCell 0b001 5 10
+    mac LoadCell 0b001 8 10
+    mac LoadCell 0b001 9 10
+    mac LoadCell 0b001 10 10
+end
+
+getmac macMapInit MapInit
+mac AddMap 7 macMapInit

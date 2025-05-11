@@ -1,0 +1,441 @@
+pset $MULTIPUSH false
+
+defmac BuildSchem
+    block $MAP_CELL @memory-bank 0 5
+    block $COMM_CELL @memory-cell 1 7
+    block $MESSAGE @message 5 2
+    
+    block $DISPLAY @large-logic-display 4 5
+    pset $DISPLAY_SIZE 176
+    
+    block $SWITCH_L @switch 2 1
+    block $SWITCH_R @switch 4 1
+    block $SWITCH_U @switch 3 2
+    block $SWITCH_D @switch 3 0
+    block $SWITCH_RESET @switch 7 2
+
+    block _ @thorium-wall 0 0
+    block _ @thorium-wall 1 0
+    block _ @thorium-wall 2 0
+    block _ @thorium-wall 4 0
+    block _ @thorium-wall 5 0
+    block _ @thorium-wall 6 0
+    block _ @thorium-wall 7 0
+    block _ @thorium-wall 8 0
+    block _ @thorium-wall 9 0
+
+    block _ @thorium-wall 0 1
+    block _ @thorium-wall 1 1
+    block _ @thorium-wall 3 1
+    block _ @thorium-wall 5 1
+    block _ @thorium-wall 6 1
+    block _ @thorium-wall 7 1
+    block _ @thorium-wall 8 1
+    block _ @thorium-wall 9 1
+
+    block _ @thorium-wall 0 2
+    block _ @thorium-wall 1 2
+    block _ @thorium-wall 2 2
+    block _ @thorium-wall 4 2
+    block _ @thorium-wall 6 2
+    block _ @thorium-wall 8 2
+    block _ @thorium-wall 9 2
+
+    block _ @thorium-wall 0 7
+
+    block _ @thorium-wall 0 8
+    block _ @thorium-wall 1 8
+
+    block _ @thorium-wall 0 9
+    block _ @thorium-wall 1 9
+    block _ @thorium-wall 2 9
+    block _ @thorium-wall 3 9
+    block _ @thorium-wall 4 9
+    block _ @thorium-wall 5 9
+    block _ @thorium-wall 6 9
+    block _ @thorium-wall 7 9
+    block _ @thorium-wall 8 9
+    block $WAIT_BLOCK @thorium-wall 9 9
+end
+
+defmac LoadMap id
+    print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\nLoading..."
+    printflush $MESSAGE
+    mac ClearMap
+    write 0 $COMM_CELL 1
+    write id $COMM_CELL 0
+    Loop:
+    read status $COMM_CELL 1
+    jump Loop equal status 0
+    read $playerX $COMM_CELL 5
+    read $playerY $COMM_CELL 6
+    read $MAP_SIZE $COMM_CELL 7
+    op div $MAP_CELL_SIZE $DISPLAY_SIZE $MAP_SIZE
+    op floor $MAP_CELL_SIZE $MAP_CELL_SIZE
+    op div $HALF_MAP_CELL_SIZE $MAP_CELL_SIZE 2
+    mac InitProcessMap
+    mac RenderPlayer
+    print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
+    print id
+    printflush $MESSAGE
+    set $moveCount 0
+    set $startTime @second
+end
+
+defmac ClearMap
+    op pow clearLimit $MAP_SIZE 2
+    set i 0
+    Loop:
+        write 0b000 $MAP_CELL i
+    op add i i 1
+    jump Loop lessThan i clearLimit
+end
+
+defmac LoadCell state x y
+    pop mul idx y $MAP_SIZE
+    pop add idx idx x
+    write state $MAP_CELL idx
+end
+
+defmac LoadPlayer x y
+    write x $COMM_CELL 5
+    write y $COMM_CELL 6
+end
+
+defmac LoadMapSize size
+    write size $COMM_CELL 7
+    pset $MAP_SIZE size
+end
+
+defmac AddMap id mapMac
+    pop sub lid id 1
+    pop idiv x lid 6
+    pop mod y lid 6
+    pop add x x 8
+    pop add y y 3
+    setmac MapMac mapMac
+    pset $mapProcessorID id
+    proc _ @micro-processor x y
+        Top:
+        read selectedId $COMM_CELL 0
+        jump Top notEqual selectedId $mapProcessorID
+        mac MapMac
+        write 0 $COMM_CELL 0
+        write 1 $COMM_CELL 1
+    end
+end
+
+defmac InitProcessCell x y
+    mac GetCellRaw state x y
+    jump NoGoal notEqual state 0b100
+    op add $remainingGoals $remainingGoals 1
+    NoGoal:
+    mac DrawCell state x y
+end
+
+defmac InitProcessMap
+    set $remainingGoals 0
+    draw clear 0 0 0
+    set y 0
+    LoopY:
+    set x 0
+    LoopX:
+        mac InitProcessCell x y
+    op add x x 1
+    jump LoopX lessThan x $MAP_SIZE
+    op add y y 1
+    jump LoopY lessThan y $MAP_SIZE
+end
+
+defmac GetCellRaw state x y
+    op mul idx y $MAP_SIZE
+    op add idx idx x
+    read state $MAP_CELL idx
+end
+
+defmac GetCell state x y
+    jump Edge greaterThanEq x $MAP_SIZE
+    jump Edge greaterThanEq y $MAP_SIZE
+    jump Edge lessThan x 0
+    jump Edge lessThan y 0
+    mac GetCellRaw state x y
+    jump NoEdge always
+    Edge:
+    set state 0b001
+    NoEdge:
+end
+
+defmac SetCell state x y
+    op mul idx y $MAP_SIZE
+    op add idx idx x
+    op add @counter @counter state
+    jump End always
+    jump End always
+    jump End always
+    jump End always
+    op add $remainingGoals $remainingGoals 1
+    jump End always
+    op sub $remainingGoals $remainingGoals 1
+    End:
+    write state $MAP_CELL idx
+end
+
+defmac DirToMotion dx dy dir
+    op mul ldir dir 3
+    op add @counter @counter ldir
+    set dx 1
+    set dy 0
+    jump End always
+    set dx 0
+    set dy 1
+    jump End always
+    set dx -1
+    set dy 0
+    jump End always
+    set dx 0
+    set dy -1
+    End:
+end
+
+defmac DrawCell state x y
+    op mul lx x $MAP_CELL_SIZE
+    op mul ly y $MAP_CELL_SIZE
+    op add lx lx $HALF_MAP_CELL_SIZE
+    op add ly ly $HALF_MAP_CELL_SIZE
+    op add @counter @counter state
+    jump Floor always
+    jump Wall always
+    jump Box always
+    jump End always
+    jump Goal always
+    jump End always
+    jump GoalBox always
+    jump End always
+    Wall:
+        draw image lx ly @shrubs $MAP_CELL_SIZE
+        jump End always
+    Box:
+        draw image lx ly @copper-wall $MAP_CELL_SIZE
+        jump End always
+    GoalBox:
+        draw image lx ly @titanium-wall $MAP_CELL_SIZE
+        jump End always
+    Goal:
+        draw image lx ly @sand-floor $MAP_CELL_SIZE
+        jump End always
+    Floor:
+        draw image lx ly @grass $MAP_CELL_SIZE
+    End:
+    drawflush $DISPLAY
+end
+
+defmac RenderCell x y
+    mac GetCellRaw state x y
+    mac DrawCell state x y
+end
+
+defmac RenderPlayer
+    op mul lx $playerX $MAP_CELL_SIZE
+    op add lx lx $HALF_MAP_CELL_SIZE
+    op mul ly $playerY $MAP_CELL_SIZE
+    op add ly ly $HALF_MAP_CELL_SIZE
+    op sub ly ly 1
+    draw image lx ly @crawler $MAP_CELL_SIZE
+    drawflush $DISPLAY
+end
+
+defmac UpdateMoveMultipush
+    mac ReadInput dx dy
+    jump NoMovement strictEqual dx null
+        op add cx $playerX dx
+        op add cy $playerY dy
+        mac GetCell firstTile cx cy
+        op and isSolid firstTile 0b001
+        jump NoMovement notEqual isSolid false
+        op and isPush firstTile 0b010
+        jump YesMovement equal isPush false
+        CheckLoop:
+        op add cx cx dx
+        op add cy cy dy
+        mac GetCell tile cx cy
+        op and isSolid tile 0b001
+        jump NoMovement notEqual isSolid false
+        op and isPush tile 0b010
+        jump CheckLoop notEqual isPush false
+        op or tile tile 0b010
+        mac SetCell tile cx cy
+        mac RenderCell cx cy
+        op and firstTile firstTile 0b101
+        op add cx $playerX dx
+        op add cy $playerY dy
+        mac SetCell firstTile cx cy
+        mac RenderCell cx cy
+        YesMovement:
+        mac MovePlayer dx dy
+    NoMovement:
+end
+
+defmac UpdateMove
+    mac ReadInput dx dy
+    jump NoMovement strictEqual dx null
+        op add cx $playerX dx
+        op add cy $playerY dy
+        mac GetCell firstTile cx cy
+        op and isSolid firstTile 0b001
+        jump NoMovement notEqual isSolid false
+        op and isPush firstTile 0b010
+        jump YesMovement equal isPush false
+        op add endx cx dx
+        op add endy cy dy
+        mac GetCell tile endx endy
+        op and isSolid tile 0b011
+        jump NoMovement notEqual isSolid false
+        op or tile tile 0b010
+        mac SetCell tile endx endy
+        mac RenderCell endx endy
+        op and firstTile firstTile 0b101
+        mac SetCell firstTile cx cy
+        mac RenderCell cx cy
+        YesMovement:
+        mac MovePlayer dx dy
+    NoMovement:
+end
+
+defmac ReadInput dx dy
+    sensor state $SWITCH_U @enabled
+    jump Up equal state true
+    sensor state $SWITCH_D @enabled
+    jump Down equal state true
+    sensor state $SWITCH_L @enabled
+    jump Left equal state true
+    sensor state $SWITCH_R @enabled
+    jump Right equal state true
+    jump Else always
+    Up:
+        set dx 0
+        set dy 1
+        control enabled $SWITCH_U false
+    jump End always
+    Down:
+        set dx 0
+        set dy -1
+        control enabled $SWITCH_D false
+    jump End always
+    Left:
+        set dx -1
+        set dy 0
+        control enabled $SWITCH_L false
+    jump End always
+    Right:
+        set dx 1
+        set dy 0
+        control enabled $SWITCH_R false
+    jump End always
+    Else:
+    set dx null
+    End:
+end
+
+defmac MovePlayer dx dy
+    mac RenderCell $playerX $playerY
+    op add $playerX $playerX dx
+    op add $playerY $playerY dy
+    mac RenderPlayer
+    op add $moveCount $moveCount 1
+end
+
+defmac Update
+    if equal $MULTIPUSH true
+        mac UpdateMoveMultipush
+    else
+        mac UpdateMove
+    end
+end
+
+defmac Main
+    StartWaitLoop:
+        sensor check $WAIT_BLOCK @type
+    jump StartWaitLoop equal check null
+    control enabled $SWITCH_U 0
+    control enabled $SWITCH_D 0
+    control enabled $SWITCH_L 0
+    control enabled $SWITCH_R 0
+    control enabled $SWITCH_RESET 0
+    read $MAP_SIZE $COMM_CELL 7
+    op div $MAP_CELL_SIZE $DISPLAY_SIZE $MAP_SIZE
+    op floor $MAP_CELL_SIZE $MAP_CELL_SIZE
+    op div $HALF_MAP_CELL_SIZE $MAP_CELL_SIZE 2
+    set $CurrentMap 1
+    mac LoadMap $CurrentMap
+    Loop:
+        mac Update
+        sensor reset $SWITCH_RESET @enabled
+        jump Reset equal reset true
+        jump LevelNotFinished greaterThan $remainingGoals 0
+            op sub mapTime @second $startTime
+            op add $totalMapTime $totalMapTime mapTime
+            op add $totalMoveCount $totalMoveCount $moveCount
+            op mul mapTime mapTime 10
+            op add mapTime mapTime 0.5
+            op floor mapTime mapTime
+            op div mapTime mapTime 10
+            jump FinalLevel greaterThanEq $CurrentMap 12
+                print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
+                print $CurrentMap
+                print "\n[lightgray]Time:[white] "
+                print mapTime
+                print " seconds\n[lightgray]Steps:[white] "
+                print $moveCount
+                print "\n\nPress any direction to continue."
+                printflush $MESSAGE
+            jump InputWaitLoop always
+            FinalLevel:
+                op mul $totalMapTime $totalMapTime 10
+                op add $totalMapTime $totalMapTime 0.5
+                op floor $totalMapTime $totalMapTime
+                op div $totalMapTime $totalMapTime 10
+                print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
+                print $CurrentMap
+                print "\n[lightgray]Time:[white] "
+                print mapTime
+                print " seconds\n[lightgray]Steps:[white] "
+                print $moveCount
+                print "\n\nCongratulations!!!\nAll levels complete.\n\n[lightgray]Total Time:[white] "
+                print $totalMapTime
+                print " seconds\n[lightgray]Total Steps:[white] "
+                print $totalMoveCount
+                print "\n\nPress any direction to restart from the beginning."
+
+                printflush $MESSAGE
+                set $totalMapTime 0
+                set $totalMoveCount 0
+                set $CurrentMap 0
+            InputWaitLoop:
+                mac ReadInput dx dy
+            jump InputWaitLoop strictEqual dx null
+            op add $CurrentMap $CurrentMap 1
+            Reset:
+            mac LoadMap $CurrentMap
+            control enabled $SWITCH_RESET false
+        LevelNotFinished:
+    jump Loop always
+end
+
+mac BuildSchem
+
+proc _ @logic-processor 0 3
+    mac Main
+end
+
+import levels/level1.sfmlog
+import levels/level2.sfmlog
+import levels/level3.sfmlog
+import levels/level4.sfmlog
+import levels/level5.sfmlog
+import levels/level6.sfmlog
+import levels/level7.sfmlog
+import levels/level8.sfmlog
+import levels/level9.sfmlog
+import levels/level10.sfmlog
+import levels/level11.sfmlog
+import levels/level12.sfmlog
