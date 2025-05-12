@@ -76,8 +76,8 @@ defmac LoadMap id
     print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
     print id
     printflush $MESSAGE
-    set $UNDO_BUFFER_START 0
-    set $UNDO_BUFFER_END 0
+    set $undoBufferStart 0
+    set $undoBufferEnd 0
     set $moveCount 0
     set $startTime @second
 end
@@ -285,24 +285,27 @@ defmac ReadInput dx dy
         set dx 0
         set dy 1
         control enabled $SWITCH_U false
-    jump End always
+    jump ButtonExit always
     Down:
         set dx 0
         set dy -1
         control enabled $SWITCH_D false
-    jump End always
+    jump ButtonExit always
     Left:
         set dx -1
         set dy 0
         control enabled $SWITCH_L false
-    jump End always
+    jump ButtonExit always
     Right:
         set dx 1
         set dy 0
         control enabled $SWITCH_R false
-    jump End always
+    jump ButtonExit always
     Else:
-    set dx null
+        set dx null
+    jump End always
+    ButtonExit:
+        mac CheckSecret dx dy
     End:
 end
 
@@ -322,30 +325,30 @@ defmac UndoPlayer dx dy
 end
 
 defmac WriteUndo dx dy push
-    op add $UNDO_BUFFER_END $UNDO_BUFFER_END 1
-    op mod $UNDO_BUFFER_END $UNDO_BUFFER_END $UNDO_BUFFER_SIZE
-    jump YesSpace notEqual $UNDO_BUFFER_END $UNDO_BUFFER_START
-        op add $UNDO_BUFFER_START $UNDO_BUFFER_START 1
-        op mod $UNDO_BUFFER_START $UNDO_BUFFER_START $UNDO_BUFFER_SIZE
+    op add $undoBufferEnd $undoBufferEnd 1
+    op mod $undoBufferEnd $undoBufferEnd $UNDO_BUFFER_SIZE
+    jump YesSpace notEqual $undoBufferEnd $undoBufferStart
+        op add $undoBufferStart $undoBufferStart 1
+        op mod $undoBufferStart $undoBufferStart $UNDO_BUFFER_SIZE
     YesSpace:
-    write dx $UNDO_DX_CELL $UNDO_BUFFER_END
-    write dy $UNDO_DY_CELL $UNDO_BUFFER_END
-    write push $UNDO_PUSH_CELL $UNDO_BUFFER_END
+    write dx $UNDO_DX_CELL $undoBufferEnd
+    write dy $UNDO_DY_CELL $undoBufferEnd
+    write push $UNDO_PUSH_CELL $undoBufferEnd
 end
 
 defmac ReadUndo dx dy push
-    read dx $UNDO_DX_CELL $UNDO_BUFFER_END
-    read dy $UNDO_DY_CELL $UNDO_BUFFER_END
-    read push $UNDO_PUSH_CELL $UNDO_BUFFER_END
+    read dx $UNDO_DX_CELL $undoBufferEnd
+    read dy $UNDO_DY_CELL $undoBufferEnd
+    read push $UNDO_PUSH_CELL $undoBufferEnd
     pop sub undoBufferSizeSub1 $UNDO_BUFFER_SIZE 1
-    op add $UNDO_BUFFER_END $UNDO_BUFFER_END undoBufferSizeSub1
-    op mod $UNDO_BUFFER_END $UNDO_BUFFER_END $UNDO_BUFFER_SIZE
+    op add $undoBufferEnd $undoBufferEnd undoBufferSizeSub1
+    op mod $undoBufferEnd $undoBufferEnd $UNDO_BUFFER_SIZE
 end
 
 defmac UpdateUndo
     sensor doUndo $SWITCH_UNDO @enabled
     jump NoUndo notEqual doUndo true
-        jump CantUndo equal $UNDO_BUFFER_START $UNDO_BUFFER_END
+        jump CantUndo equal $undoBufferStart $undoBufferEnd
         mac ReadUndo dx dy push
         jump NoBox equal push false
             op add boxX $playerX dx
@@ -365,9 +368,106 @@ defmac UpdateUndo
     NoUndo:
 end
 
+defmac CheckSecret dx dy
+    op add @counter @counter $secretProgress
+    jump CheckU always
+    jump CheckU always
+    jump CheckD always
+    jump CheckD always
+    jump CheckL always
+    jump CheckR always
+    jump CheckL always
+    jump CheckR always
+    CheckU:
+        op equal check dy 1
+    jump End always
+    CheckD:
+        op equal check dy -1
+    jump End always
+    CheckL:
+        op equal check dx -1
+    jump End always
+    CheckR:
+        op equal check dx 1
+    End:
+    op add $secretProgress $secretProgress 1
+    op mul $secretProgress $secretProgress check
+end
+
+defmac SecretCheckUpdate
+    jump NoCheck lessThan $secretProgress 8
+    CheckLoop:
+        sensor stateU $SWITCH_U @enabled
+        sensor stateD $SWITCH_D @enabled
+        sensor stateL $SWITCH_L @enabled
+        sensor stateR $SWITCH_R @enabled
+        sensor stateReset $SWITCH_RESET @enabled
+        sensor stateUndo $SWITCH_UNDO @enabled
+        op add switchSum stateU stateD
+        op add switchSum switchSum stateL
+        op add switchSum switchSum stateR
+        op add switchSum switchSum stateReset
+        op add switchSum switchSum stateUndo
+        jump NoPress equal switchSum 0
+            jump Check2 equal $secretProgress 9
+            jump Reset notEqual stateUndo true
+            control enabled $SWITCH_UNDO false
+            op add $secretProgress $secretProgress 1
+            jump NoPress always
+            Check2:
+            jump Reset notEqual stateReset true
+            jump SecretNotEnabled equal $secretEnabled false
+            set $totalMapTime 0
+            set $totalMoveCount 0
+            set $currentMap 1
+            set $secretEnabled false
+            mac LoadMap 1
+            control enabled $SWITCH_RESET false
+            jump Reset always
+            SecretNotEnabled:
+            set $secretEnabled true
+            Reset:
+            set $secretProgress 0
+            jump NoCheck always
+        NoPress:
+    jump CheckLoop always
+    NoCheck:
+end
+
+defmac SecretMode
+    control enabled $SWITCH_RESET false
+    Loop:
+    print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[white]\n\nWelcome to the level select, use left and right to select a level, then submit by pressing reset. You can access this menu at any time in the future by pressing reset. Redo the code to disable the level select.\n\n [lightgray]Selected Level:[white] "
+    print $currentMap
+    printflush $MESSAGE
+    control enabled $SWITCH_U false
+    control enabled $SWITCH_D false
+    control enabled $SWITCH_UNDO false
+    sensor state $SWITCH_R @enabled
+    jump Right equal state true
+    sensor state $SWITCH_L @enabled
+    jump Left equal state true
+    sensor state $SWITCH_RESET @enabled
+    jump Exit equal state true
+    jump Loop always
+    Right:
+        op add $currentMap $currentMap 1
+        op min $currentMap $currentMap 12
+        control enabled $SWITCH_R false
+    jump Loop always
+    Left:
+        op sub $currentMap $currentMap 1
+        op max $currentMap $currentMap 1
+        control enabled $SWITCH_L false
+    jump Loop always
+    Exit:
+    control enabled $SWITCH_RESET false
+end
+
 defmac Update
     mac UpdateMove
     mac UpdateUndo
+    mac SecretCheckUpdate
 end
 
 defmac Main
@@ -380,14 +480,15 @@ defmac Main
     control enabled $SWITCH_R 0
     control enabled $SWITCH_UNDO 0
     control enabled $SWITCH_RESET 0
-    set $UNDO_BUFFER_START 0
-    set $UNDO_BUFFER_END 0
+    set $secretEnabled false
+    set $undoBufferStart 0
+    set $undoBufferEnd 0
     read $MAP_SIZE $COMM_CELL 7
     op div $MAP_CELL_SIZE $DISPLAY_SIZE $MAP_SIZE
     op floor $MAP_CELL_SIZE $MAP_CELL_SIZE
     op div $HALF_MAP_CELL_SIZE $MAP_CELL_SIZE 2
-    set $CurrentMap 1
-    mac LoadMap $CurrentMap
+    set $currentMap 1
+    mac LoadMap $currentMap
     Loop:
         mac Update
         sensor reset $SWITCH_RESET @enabled
@@ -400,14 +501,17 @@ defmac Main
             op add mapTime mapTime 0.5
             op floor mapTime mapTime
             op div mapTime mapTime 10
-            jump FinalLevel greaterThanEq $CurrentMap 12
+            jump FinalLevel greaterThanEq $currentMap 12
                 print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
-                print $CurrentMap
+                print $currentMap
                 print "\n[lightgray]Time:[white] "
                 print mapTime
                 print " seconds\n[lightgray]Steps:[white] "
                 print $moveCount
                 print "\n\nPress any direction to continue."
+                jump NormalLevelNoSecret equal $secretEnabled false
+                    print "\n*"
+                NormalLevelNoSecret:
                 printflush $MESSAGE
             jump InputWaitLoop always
             FinalLevel:
@@ -416,7 +520,7 @@ defmac Main
                 op floor $totalMapTime $totalMapTime
                 op div $totalMapTime $totalMapTime 10
                 print "[lime]Soko[tan]ban[lightgray]\nCreated by:\n[darkgray]SkyeThe[sky]FoxyFox[lightgray]\n\n[lightgray]Level:[white] "
-                print $CurrentMap
+                print $currentMap
                 print "\n[lightgray]Time:[white] "
                 print mapTime
                 print " seconds\n[lightgray]Steps:[white] "
@@ -426,17 +530,23 @@ defmac Main
                 print " seconds\n[lightgray]Total Steps:[white] "
                 print $totalMoveCount
                 print "\n\nPress any direction to restart from the beginning."
-
+                jump EndLevelNoSecret equal $secretEnabled false
+                    print "\n*"
+                EndLevelNoSecret:
                 printflush $MESSAGE
                 set $totalMapTime 0
                 set $totalMoveCount 0
-                set $CurrentMap 0
+                set $currentMap 0
             InputWaitLoop:
                 mac ReadInput dx dy
             jump InputWaitLoop strictEqual dx null
-            op add $CurrentMap $CurrentMap 1
+            op add $currentMap $currentMap 1
+            jump Load always
             Reset:
-            mac LoadMap $CurrentMap
+            jump Load equal $secretEnabled false
+                mac SecretMode
+            Load:
+            mac LoadMap $currentMap
             control enabled $SWITCH_RESET false
         LevelNotFinished:
     jump Loop always
